@@ -1,4 +1,4 @@
-package store
+package session
 
 import (
 	"github.com/diemus/tablecache"
