@@ -1,4 +1,4 @@
-package session
+package sessionutils
 
 import (
 	"github.com/diemus/tablecache"
