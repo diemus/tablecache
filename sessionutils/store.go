@@ -1,4 +1,4 @@
-package store
+package session
 
 import (
 	"encoding/base32"
@@ -61,7 +61,7 @@ func (s *TableCacheStore) New(r *http.Request, name string) (*sessions.Session, 
 	err = securecookie.DecodeMulti(name, c.Value, &session.ID, s.Codecs...)
 	if err != nil {
 		// Value could not be decrypted, consider this is a new session
-		return session, err
+		return session, nil
 	}
 
 	v, err := s.client.Get(session.ID)
@@ -76,9 +76,10 @@ func (s *TableCacheStore) New(r *http.Request, name string) (*sessions.Session, 
 
 	// Values found in session, this is not a new session
 	err = s.load(session, v)
-	if err == nil {
-		session.IsNew = false
+	if err != nil {
+		return session, err
 	}
+	session.IsNew = false
 	return session, nil
 }
 
@@ -86,10 +87,16 @@ func (s *TableCacheStore) New(r *http.Request, name string) (*sessions.Session, 
 // Set Options.MaxAge to -1 or call MaxAge(-1) before saving the session to delete all values in it.
 func (s *TableCacheStore) Save(r *http.Request, w http.ResponseWriter, session *sessions.Session) error {
 	// Delete if max-age is <= 0
-	if s.Options.MaxAge < 0 {
+	if session.Options.MaxAge < 0 {
+		//delete from database
 		err := s.client.Del(session.ID)
 		if err != nil {
 			return err
+		}
+
+		//delete local session
+		for k := range session.Values {
+			delete(session.Values, k)
 		}
 		http.SetCookie(w, sessions.NewCookie(session.Name(), "", s.Options))
 		return nil
@@ -99,17 +106,22 @@ func (s *TableCacheStore) Save(r *http.Request, w http.ResponseWriter, session *
 		session.ID = strings.TrimRight(base32.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(32)), "=")
 	}
 
-	encoded, err := securecookie.EncodeMulti(session.Name(), session.ID, s.Codecs...)
+	encodedID, err := securecookie.EncodeMulti(session.Name(), session.ID, s.Codecs...)
 	if err != nil {
 		return err
 	}
 
-	err = s.client.Set(session.ID, encoded)
+	encodedValues, err := securecookie.EncodeMulti(session.Name(), session.Values, s.Codecs...)
 	if err != nil {
 		return err
 	}
 
-	http.SetCookie(w, sessions.NewCookie(session.Name(), encoded, s.Options))
+	err = s.client.Set(session.ID, encodedValues)
+	if err != nil {
+		return err
+	}
+
+	http.SetCookie(w, sessions.NewCookie(session.Name(), encodedID, s.Options))
 	return nil
 }
 
@@ -132,6 +144,5 @@ func (s *TableCacheStore) load(session *sessions.Session, value string) error {
 	if err := securecookie.DecodeMulti(session.Name(), value, &session.Values, s.Codecs...); err != nil {
 		return err
 	}
-
 	return nil
 }
