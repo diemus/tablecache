@@ -1,4 +1,4 @@
-package session
+package sessionutils
 
 import (
 	"encoding/base32"
