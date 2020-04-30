@@ -50,6 +50,7 @@ func (t *TableCache) Get(key string) (string, error) {
 	return value, nil
 }
 
+//表格存储限制单个属性列值不超过 2MB
 func (t *TableCache) Set(key string, value string) error {
 	pk := new(tablestore.PrimaryKey)
 	pk.AddPrimaryKeyColumn("key", key)
