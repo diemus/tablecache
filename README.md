@@ -1,5 +1,5 @@
 # TableCache
-use aliyun TableStore as a Cache or Session
+Use aliyun TableStore as Cache or Session
 
 ## Usage
 ### import 
